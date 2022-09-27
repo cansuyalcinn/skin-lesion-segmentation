@@ -1,5 +1,5 @@
 numpy
-python3-opencv
+opencv-python
 # opencv-contrib-python == 4.5.4.60
 pandas
 scikit-learn
