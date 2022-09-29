@@ -20,5 +20,5 @@ def get_image_and_plot(img_num: str, path: str):
 
 def get_image(img_num: str, path: str):
     path = path + "/nev" + img_num + ".jpg"
-    return cv2.imread(path, cv2.IMREAD_COLOR)
+    return path, cv2.imread(path, cv2.IMREAD_COLOR)
     
