@@ -1,4 +1,4 @@
 data/
 database/
-utils/__pycache__/
 .ipynb_checkpoints/
+utils/__pycache__
