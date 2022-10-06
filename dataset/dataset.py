@@ -74,8 +74,10 @@ class SkinLesion_Dataset(Dataset):
         np.random.seed(self.seed)
         self.n_jobs = mp.cpu_count() if n_jobs == -1 else n_jobs
 
+        self.datapath = datapath
         self.datapath_class = datapath_class/class_task
         self.metadata_path = df_path/ (class_task + '.csv')
+        self.df_path = df_path
        
         # Load data
         self.check_paths_exist()
@@ -84,6 +86,9 @@ class SkinLesion_Dataset(Dataset):
         # Filter partition
         self.filter_by_partition()
         self.labels = self.md_df['label'].values
+
+        # Create segmentation examples df
+        self.seg_examples_df = pd.read_csv(df_path / "seg_examples.csv")
 
     def filter_by_partition(self):
         """
@@ -111,5 +116,44 @@ class SkinLesion_Dataset(Dataset):
 
         return sample
     
+
+class SegExamples(SkinLesion_Dataset):
+    def __init__(self,
+        examples_type: List[str] = ['easy', 'medium', 'hard', 'vhard'],
+
+    ):
+        """
+        Sample easy, medium, hard and very hard examples from both tasks (binary, three class)
+
+        Args:
+            examples_type (List[str], optional): Type of examples. Defaults to ['easy', 'medium', 'hard', 'vhard'].
+        """
+
+        super(SegExamples, self).__init__()
+
+        self.examples_type = examples_type
+        self.seg_examples_path = str(self.datapath)
+        self.filter_by_type
+
+    def filter_by_type(self):
+        """
+        Tthis method is called to filter the images according to the predefined
+        partitions given with the original dataset
+        """
+        self.seg_examples_df = self.seg_examples_df.loc[self.seg_examples_df.split.isin(self.examples_type), :]
+        self. seg_examples_df.reset_index(inplace=True, drop=True)
+
+    def __getitem__(self, idx):
+        sample = {}
+        sample['idx'] = idx
+        img_path = self.seg_examples_df['path'].iloc[idx]
+        sample['type'] = self.seg_examples_df['type'].iloc[idx]
+        sample['problem'] = img_path.split('/')[0]
+        sample['label'] = img_path.split('/')[2]
+        img = cv2.imread(self.seg_examples_path+ '/' + img_path, cv2.IMREAD_COLOR )
+        sample['img'] = img
+        return sample
+
+
 
 
