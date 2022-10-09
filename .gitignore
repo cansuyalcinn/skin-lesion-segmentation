@@ -3,3 +3,4 @@ database/
 .idea/
 examples/
 dataset/__pycache__/
+pipeline/__pycache__/
