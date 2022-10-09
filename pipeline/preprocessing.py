@@ -52,17 +52,18 @@ class SkinLesionPreprocessing:
             self.rs_height = 200
             self.rs_width = 200
         
-    def preprocess(self, image: np.ndarray):
+    def preprocess(self, image: np.ndarray, resize_shape = (225,300)):
         
+        # if 'size' not in md_df.columns:
+        #     md_df['size']
+
         if self.remove_fov:
-            cropped_image = self.crop_image(image)
+            image_preproc = self.crop_image(image)
 
         if self.resize:
-            resized_image = self.resize_image(cropped_image)
+            image_preproc = self.resize_image(image_preproc, resize_shape)
         
-        
-
-        
+        return self.remove_hair(image_preproc)             
 
         
     def remove_hair(self, image: np.ndarray):
@@ -101,9 +102,67 @@ class SkinLesionPreprocessing:
 
         return dst
 
-    def resize_image(self, image: np.ndarray):
-        pass
+    def resize_image(self, image: np.ndarray, resize_shape: tuple):
+        
+        # Add condition about aspect ratio
 
-    def crop_image(self, image: np.ndarray):
-        pass
+        return cv2.resize(image, resize_shape, interpolation=cv2.INTER_CUBIC)
 
+
+    def crop_image(self, image: np.ndarray, threshold = 100):
+        """
+        Crop the image to get the region of interest. Remove the vignette frame.
+        Analyze the value of the pixels in the diagonal of the image, from 0,0 to h,w and
+        take the points where this value crosses the threshold by the first time and for last.
+        
+        Args:
+        - img (numpy ndarray): Image to crop.
+        - threshold (int): Value to split the diagonal into image and frame.
+
+        Returns:
+            np.ndarray: Cropped image
+            tuple: Shape of cropped image
+        """
+        # Get the image dimensions
+        h, w = image.shape[:2]
+
+        # Get the coordinates of the pixels in the diagonal
+        if h != 1024:
+            y_coords = ([i for i in range(0, h, 3)], [i for i in range(h - 3, -1, -3)])
+        y_coords = ([i for i in range(0, h, 4)], [i for i in range(h - 4, -1, -4)])
+        x_coords = ([i for i in range(0, w, 4)], [i for i in range(0, w, 4)])
+
+        # Get the mean value of the pixels in the diagonal, form 0,0 to h,w 
+        # and from h,0 to 0,w
+        coordinates = {'y1_1': 0, 'x1_1': 0, 'y2_1': h, 'x2_1': w, 'y1_2': h, 'x1_2': 0, 'y2_2': 0, 'x2_2': w}
+        for i in range(2):
+            d = []
+            y1_aux, x1_aux = 0, 0
+            y2_aux, x2_aux = h, w 
+            for y, x in zip(y_coords[i], x_coords[i]):
+                d.append(np.mean(image[y, x, :]))
+
+            # Get the location of the first point where the threshold is crossed
+            for idx, value in enumerate(d):
+                if value >= threshold:
+                    coordinates['y1_' + str(i + 1)] = y_coords[i][idx]
+                    coordinates['x1_' + str(i + 1)] = x_coords[i][idx]
+                    break
+
+            # Get the location of the last point where the threshold is crossed
+            for idx, value in enumerate(reversed(d)):
+                if value >= threshold:
+                    coordinates['y2_' + str(i + 1)] = y_coords[i][-idx if idx != 0 else -1]
+                    coordinates['x2_' + str(i + 1)] = x_coords[i][-idx if idx != 0 else -1]
+                    break
+
+        # Set the coordinates to crop the image
+        y1 = max(coordinates['y1_1'], coordinates['y2_2'])
+        y2 = min(coordinates['y2_1'], coordinates['y1_2'])
+        x1 = max(coordinates['x1_1'], coordinates['x1_2'])
+        x2 = min(coordinates['x2_1'], coordinates['x2_2'])
+        
+        image_cropped = image[y1:y2, x1:x2, :]
+        # image_cropped_size = image_cropped.shape
+
+        return image_cropped #, image_cropped_size
