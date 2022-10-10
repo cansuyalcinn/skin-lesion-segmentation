@@ -57,12 +57,25 @@ class FeaturesExtraction():
                             self.features_names.extend([f'{level}_{space}_{fos}_{i}'])
 
     def extract_features(self, image: np.ndarray, mask = np.NaN):
+        """
+        Extract features from an image. Features can be extracted from
+        global (whole image) or local (segmented lesion).
+        Features: COLOR
 
+        Args:
+            image (np.ndarray): Original or preprocessed image (uint8 BGR)
+            mask (np.ndarray, optional): If local features is selected,
+            the mask (uint8, same dimensions as image) will be used to slice image array.
+            Defaults to np.NaN.
+
+        Returns:
+            List(float32): List of all extracted features
+        """
         features = []
 
         if self.color_params:
             features.extend(self.get_color_features(image, mask))
-  
+
         # other features
         # features.extend(self.get_X_features(image), mask)
         # candidates_features = np.concatenate(
@@ -70,44 +83,74 @@ class FeaturesExtraction():
 
         return features
 
-    def get_color_features(self, image, mask):
+    def get_color_features(self, image: np.ndarray, mask: np.ndarray):
+        """
+        Obtain color features from an image at global or local level.
 
+        Args:
+            image (np.ndarray): Original or preprocessed image (uint8 BGR)
+            mask (np.ndarray): If local features is selected,
+            the mask (uint8, same dimensions as image) will be used to slice image array.
+            Defaults to np.NaN.
+
+        Returns:
+            List(float32): List of all color features
+        """
         color_feat = []
+
+        img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        img_lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        img_ycrcb = cv2.cvtColor(image, cv2.COLOR_BGR2YCrCb)
+        img_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
         for level in self.levels:
-            img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            img_lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-            img_ycrcb = cv2.cvtColor(image, cv2.COLOR_BGR2YCrCb)
-            img_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-            color_feat.extend(self.get_statistics(img_rgb))
-            color_feat.extend(self.get_statistics(img_lab))
-            color_feat.extend(self.get_statistics(img_ycrcb))
-            color_feat.extend(self.get_statistics(img_hsv))
-
-            if level == 'local':
-                # get_local_statistics
-                pass
+            if level == 'global':
+                mask_g = np.ones(image.shape[:2])
+                color_feat.extend(self.get_statistics(img_rgb, mask_g))
+                color_feat.extend(self.get_statistics(img_lab, mask_g))
+                color_feat.extend(self.get_statistics(img_ycrcb, mask_g))
+                color_feat.extend(self.get_statistics(img_hsv, mask_g))
+            else:                
+                color_feat.extend(self.get_statistics(img_rgb, mask))
+                color_feat.extend(self.get_statistics(img_lab, mask))
+                color_feat.extend(self.get_statistics(img_ycrcb, mask))
+                color_feat.extend(self.get_statistics(img_hsv, mask)) 
 
         return color_feat            
 
-    def get_statistics(self, img):
-        mean1 = np.mean(img[:,:,0])
-        mean2 = np.mean(img[:,:,1])
-        mean3 = np.mean(img[:,:,2])
-        std1 = np.std(img[:,:,0])
-        std2 = np.std(img[:,:,1])
-        std3 = np.std(img[:,:,2])
+    def get_statistics(self, img: np.ndarray, mask: np.ndarray):
+        """
+        Obtain local first order statistics from an image by slicing it with 
+        a boolean mask
+
+        Args:
+            img (np.ndarray): _description_
+            mask (np.ndarray): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        img = img.astype(np.float32)
+        mask = mask.astype(bool)
+
+        mean1 = np.mean(img[mask, 0])
+        mean2 = np.mean(img[mask, 1])
+        mean3 = np.mean(img[mask, 2])
+        
+        std1 = np.std(img[mask, 0])
+        std2 = np.std(img[mask, 1])
+        std3 = np.std(img[mask, 2])
         # Skewness
-        val1 = skew((img[:,:,0]).reshape(-1))
-        val2 = skew((img[:,:,1]).reshape(-1))
-        val3 = skew((img[:,:,2]).reshape(-1))
+        val1 = skew((img[mask, 0]).reshape(-1))
+        val2 = skew((img[mask, 1]).reshape(-1))
+        val3 = skew((img[mask, 2]).reshape(-1))
         # Kurtosis
-        kval1 = kurtosis((img[:,:,0]).reshape(-1))
-        kval2 = kurtosis((img[:,:,1]).reshape(-1))
-        kval3 = kurtosis((img[:,:,2]).reshape(-1))
+        kval1 = kurtosis((img[mask, 0]).reshape(-1))
+        kval2 = kurtosis((img[mask, 1]).reshape(-1))
+        kval3 = kurtosis((img[mask, 2]).reshape(-1))
         # Entropy
-        entropy1 = skimage.measure.shannon_entropy(img[:,:,0])
-        entropy2 = skimage.measure.shannon_entropy(img[:,:,1])
-        entropy3 = skimage.measure.shannon_entropy(img[:,:,2])
+        entropy1 = skimage.measure.shannon_entropy(img[mask, 0])
+        entropy2 = skimage.measure.shannon_entropy(img[mask, 1])
+        entropy3 = skimage.measure.shannon_entropy(img[mask, 2])
 
         return [mean1,mean2,mean3, std1,std2,std3,val1,val2,val3,kval1,kval2,kval3, entropy1, entropy2, entropy3]
