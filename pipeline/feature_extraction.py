@@ -1,3 +1,4 @@
+import enum
 from operator import index
 import os
 import sys;
@@ -24,15 +25,17 @@ from sklearn import metrics
 from sklearn.model_selection import StratifiedKFold
 from statistics import stdev
 from sklearn import linear_model
-from skimage.feature import local_binary_pattern
+from skimage.feature import local_binary_pattern, graycomatrix, graycoprops
 
 fos_names = ['mean', 'std', 'skew', 'kur', 'ent']
+glcm_stats = ['contrast','dissimilarity','homogeneity','ASM','energy','correlation']
 
-color_params = {'spaces': ['rgb', 'lab', 'ycrbcb', 'hsv'],
+color_params = {'spaces': ['rgb', 'lab', 'ycrbcb', 'hsv']}
 
-                }
+lbp_params = {'radius': [1, 3],'points': 8 }
 
-lbp_params = {'channels': ['c1', 'c2', 'c3'], }
+glcm_params = {'angles' : [0, np.pi/4, np.pi/2, 3*np.pi/4],
+                'distance' : [1, 2]}
 
 
 class FeaturesExtraction():
@@ -40,6 +43,7 @@ class FeaturesExtraction():
             self, levels: List[str] = ['global', 'local'],
             color_params: dict = color_params,
             lbp_params: dict = lbp_params,
+            glcm_params: dict = glcm_params,
             n_jobs: int = -1
     ):
         super(FeaturesExtraction, self).__init__()
@@ -47,6 +51,7 @@ class FeaturesExtraction():
         self.levels = levels
         self.color_params = color_params
         self.lbp_params = lbp_params
+        self.glcm_params = glcm_params
 
         if n_jobs == -1:
             n_jobs = mp.cpu_count()
@@ -58,11 +63,6 @@ class FeaturesExtraction():
 
         self.features_names = []
 
-        if self.lbp_params:
-            for level in self.levels:
-                for space in self.lbp_params['channels']:
-                    self.features_names.extend([f'{level}_{space}'])
-
         if self.color_params:
             for level in self.levels:
                 for space in self.color_params['spaces']:
@@ -70,8 +70,26 @@ class FeaturesExtraction():
                         for i in range(1, 4):
                             self.features_names.extend([f'{level}_{space}_{fos}_{i}'])
 
+        if self.lbp_params:
+            for level in self.levels:
+                if level != 'local':
+                    for rad in self.lbp_params['radius']:
+                        for lbp_idx in range(10):
+                            self.features_names.extend([f'{level}_rad_{rad}_lbp{lbp_idx}'])
+        
+        if self.glcm_params:
+            for level in self.levels:
+                if level != 'local':
+                    for feat in glcm_stats:
+                        for distance in self.glcm_params['distance']:
+                            for angle_idx in range(len(self.glcm_params['angles'])):                        
+                                self.features_names.extend([f'{level}_dist{distance}_ang{angle_idx}_{feat}'])
+                
+        # if self.glcm_params:
 
-    def extract_features(self, image: np.ndarray, mask=np.NaN):
+
+
+    def extract_features(self, image: np.ndarray, mask=None):
         """
         Extract features from an image. Features can be extracted from
         global (whole image) or local (segmented lesion).
@@ -81,28 +99,29 @@ class FeaturesExtraction():
             image (np.ndarray): Original or preprocessed image (uint8 BGR)
             mask (np.ndarray, optional): If local features is selected,
             the mask (uint8, same dimensions as image) will be used to slice image array.
-            Defaults to np.NaN.
+            Defaults to None.
 
         Returns:
             List(float32): List of all extracted features
         """
         features = []
-        features_lbp = []
-
+    
         if self.color_params:
             features.extend(self.get_color_features(image, mask))
 
+        self.img_gs = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
         if self.lbp_params:
-            features_lbp.extend(self.get_lbp_features(image, mask))
+            features.extend(self.get_lbp_features(self.img_gs, mask))
 
-        candidates_features = np.concatenate([features_lbp, features], axis=1)
-
+        if self.glcm_params:
+            features.extend(self.get_glcm_features(self.img_gs))
         # other features
         # features.extend(self.get_X_features(image), mask)
         # candidates_features = np.concatenate(
         #         [features_others, features], axis=1)
 
-        return candidates_features
+        return features
 
     def get_color_features(self, image: np.ndarray, mask: np.ndarray):
         """
@@ -112,7 +131,6 @@ class FeaturesExtraction():
             image (np.ndarray): Original or preprocessed image (uint8 BGR)
             mask (np.ndarray): If local features is selected,
             the mask (uint8, same dimensions as image) will be used to slice image array.
-            Defaults to np.NaN.
 
         Returns:
             List(float32): List of all color features
@@ -174,8 +192,8 @@ class FeaturesExtraction():
         entropy2 = skimage.measure.shannon_entropy(img[mask, 1])
         entropy3 = skimage.measure.shannon_entropy(img[mask, 2])
 
-        return [mean1, mean2, mean3, std1, std2, std3, val1, val2, val3, kval1, kval2, kval3, entropy1, entropy2,
-                entropy3]
+        return [mean1, mean2, mean3, std1, std2, std3, val1, val2, val3, kval1, kval2, kval3, 
+                entropy1, entropy2, entropy3]
 
     def get_lbp_features(self, image: np.ndarray, mask: np.ndarray):
         """
@@ -185,7 +203,6 @@ class FeaturesExtraction():
             image (np.ndarray): Original or preprocessed image (uint8 BGR)
             mask (np.ndarray): If local features is selected,
             the mask (uint8, same dimensions as image) will be used to slice image array.
-            Defaults to np.NaN.
 
         Returns:
             List(float32): List of all LBP features
@@ -194,14 +211,15 @@ class FeaturesExtraction():
 
         for level in self.levels:
             if level == 'global':
-                mask_g = np.ones(image.shape[:2])
-                lbp_feat.extend(self.get_lbp_calculation(image, mask_g))
+                # mask_g = np.ones(image.shape[:2])
+                lbp_feat.extend(self.get_lbp_calculation(image))
             else:
-                lbp_feat.extend(self.get_lbp_calculation(image, mask))
+                continue
+                # lbp_feat.extend(self.get_lbp_calculation(image, mask))
 
         return lbp_feat
 
-    def get_lbp_calculation(self, img: np.ndarray, mask: np.ndarray):
+    def get_lbp_calculation(self, img: np.ndarray):
         """
         Obtain LBP features for three channel (RGB).
 
@@ -212,23 +230,40 @@ class FeaturesExtraction():
         Returns:
             _type_: _description_
         """
-        radius = 1
-        n_points = 8 * radius
+        
         lbp_feature_vector = []
 
-        lbp1 = local_binary_pattern(img[mask, 0], n_points, radius, method="uniform")
-        lbp2 = local_binary_pattern(img[mask, 1], n_points, radius, method="uniform")
-        lbp3 = local_binary_pattern(img[mask, 2], n_points, radius, method="uniform")
+        for rad in self.lbp_params['radius']:
+            n_points = self.lbp_params['points'] * rad            
+            lbp = local_binary_pattern(img, n_points, rad, method="uniform")
+            hist = np.histogram(lbp.ravel())[0].astype(np.float32)
+            hist = hist/(hist.sum() + np.finfo(np.float32).eps)
+            lbp_feature_vector.extend(np.ndarray.tolist(hist))
 
-        hist1 = np.histogram(lbp1.ravel())
-        hist2 = np.histogram(lbp2.ravel())
-        hist3 = np.histogram(lbp3.ravel())
+        # # lbp from saturation channel (HSV)
+        # lbp = local_binary_pattern(self.img_hsv[:,:,1], n_points, self.lbp_params['radius'], method="uniform")
+        # hist = np.histogram(lbp.ravel())[0].astype(np.float32)
+        # hist = hist/(hist.sum() + np.finfo(np.float32).eps)
+        # lbp_feature_vector.extend(np.ndarray.tolist(hist))
 
-        feature_array1 = np.ndarray.tolist(hist1[0])
-        feature_array2 = np.ndarray.tolist(hist2[0])
-        feature_array3 = np.ndarray.tolist(hist3[0])
+        # for ch in range(3):
+        #     lbp = local_binary_pattern(img[:,:,ch], n_points, self.lbp_params['radius'], method="uniform")
+        #     hist = np.histogram(lbp.ravel())[0].astype(np.float32)
+        #     hist = hist/(hist.sum() + np.finfo(np.float32).eps)
+        #     lbp_feature_vector.extend(np.ndarray.tolist(hist))
 
-        lbp_all = np.concatenate((feature_array1, feature_array2, feature_array3), axis=0)
-        lbp_feature_vector.append(lbp_all)
+        return lbp_feature_vector
 
-        return pd.DataFrame(lbp_feature_vector)
+    def get_glcm_features(self, img: np.ndarray):
+
+        glcm_feat = []
+        glcm_decomp = graycomatrix(img, self.glcm_params['distance'], 
+                                    self.glcm_params['angles'], normed=True)
+
+        for feat_name in glcm_stats:
+            glcm_feat.extend(graycoprops(glcm_decomp, feat_name).ravel())
+        
+        return glcm_feat
+        
+
+
