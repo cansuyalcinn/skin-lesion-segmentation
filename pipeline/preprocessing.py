@@ -1,6 +1,8 @@
 from operator import index
 import os
-import sys; sys.path.insert(0, os.path.abspath("../"))
+import sys;
+
+sys.path.insert(0, os.path.abspath("../"))
 
 import collections
 import logging
@@ -10,6 +12,7 @@ import pandas as pd
 from pathlib import Path
 from typing import List, Tuple
 import multiprocessing as mp
+
 thispath = Path(__file__).resolve()
 
 epsillon = np.finfo(float).eps
@@ -18,18 +21,19 @@ logging.basicConfig(level=logging.INFO)
 
 # Default parameters
 
-HAIR_REMOVAL_PARAMS = {'kernel_size': (20,20),
-                        'gauss_kernel_size': (3,3),
-                        'thresh_low': 10,
-                        'thresh_high': 255}
+HAIR_REMOVAL_PARAMS = {'kernel_size': (20, 20),
+                       'gauss_kernel_size': (3, 3),
+                       'thresh_low': 10,
+                       'thresh_high': 255}
+
 
 class SkinLesionPreprocessing:
     def __init__(self,
-                remove_fov: bool = True,
-                resize: bool = False,
-                hair_removal_params: dict = HAIR_REMOVAL_PARAMS,
+                 remove_fov: bool = True,
+                 resize: bool = False,
+                 hair_removal_params: dict = HAIR_REMOVAL_PARAMS,
 
-    ):
+                 ):
         """ Preprocess the images from Skin Lesion Dataset
         Removes FOV (vignette), reisize the images to a defined length,
         and removes dark hairs from image.
@@ -51,9 +55,9 @@ class SkinLesionPreprocessing:
         if resize:
             self.rs_height = 200
             self.rs_width = 200
-        
-    def preprocess(self, image: np.ndarray, resize_shape = (225,300)):
-        
+
+    def preprocess(self, image: np.ndarray, resize_shape=(225, 300)):
+
         # if 'size' not in md_df.columns:
         #     md_df['size']
 
@@ -62,10 +66,9 @@ class SkinLesionPreprocessing:
 
         if self.resize:
             image_preproc = self.resize_image(image_preproc, resize_shape)
-        
-        return self.remove_hair(image_preproc)             
 
-        
+        return self.remove_hair(image_preproc)
+
     def remove_hair(self, image: np.ndarray):
         """
         Removes dark hairs from image with blackhat technique and inpainting.
@@ -77,39 +80,38 @@ class SkinLesionPreprocessing:
             np.ndarray: 3 channel BGR uint8 image without hairs
         """
         # get red channel
-        red = image[:,:,2]
+        red = image[:, :, 2]
 
         # Gaussian filter
-        gaussian= cv2.GaussianBlur(red, self.hair_removal_params['gauss_kernel_size'], 
+        gaussian = cv2.GaussianBlur(red, self.hair_removal_params['gauss_kernel_size'],
                                     cv2.BORDER_DEFAULT)
 
         # Black hat filter
         kernel = cv2.getStructuringElement(1, self.hair_removal_params['kernel_size'])
         blackhat = cv2.morphologyEx(gaussian, cv2.MORPH_BLACKHAT, kernel)
 
-        #Binary thresholding (MASK)
-        ret,mask = cv2.threshold(blackhat, self.hair_removal_params['thresh_low'], 
-                                    self.hair_removal_params['thresh_high'], cv2.THRESH_BINARY)
+        # Binary thresholding (MASK)
+        ret, mask = cv2.threshold(blackhat, self.hair_removal_params['thresh_low'],
+                                  self.hair_removal_params['thresh_high'], cv2.THRESH_BINARY)
 
-        # apply opening : erosion+dilation (remove the dots that are captured and then extend the hair parts)
+        # Apply opening : erosion+dilation (remove the dots that are captured and then extend the hair parts)
         kernel_opening = np.ones((1, 1), np.uint8)
         opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel_opening)
         kernel_dilation = np.ones((5, 5), np.uint8)
         dilated_mask = cv2.dilate(opening, kernel_dilation, iterations=1)
 
-        #Replace pixels of the mask
-        dst = cv2.inpaint(image,dilated_mask,6,cv2.INPAINT_TELEA)
+        # Replace pixels of the mask
+        dst = cv2.inpaint(image, dilated_mask, 6, cv2.INPAINT_TELEA)
 
         return dst
 
     def resize_image(self, image: np.ndarray, resize_shape: tuple):
-        
+
         # Add condition about aspect ratio
 
         return cv2.resize(image, resize_shape, interpolation=cv2.INTER_CUBIC)
 
-
-    def crop_image(self, image: np.ndarray, threshold = 100):
+    def crop_image(self, image: np.ndarray, threshold=100):
         """
         Crop the image to get the region of interest. Remove the vignette frame.
         Analyze the value of the pixels in the diagonal of the image, from 0,0 to h,w and
@@ -138,7 +140,7 @@ class SkinLesionPreprocessing:
         for i in range(2):
             d = []
             y1_aux, x1_aux = 0, 0
-            y2_aux, x2_aux = h, w 
+            y2_aux, x2_aux = h, w
             for y, x in zip(y_coords[i], x_coords[i]):
                 d.append(np.mean(image[y, x, :]))
 
@@ -161,7 +163,7 @@ class SkinLesionPreprocessing:
         y2 = min(coordinates['y2_1'], coordinates['y1_2'])
         x1 = max(coordinates['x1_1'], coordinates['x1_2'])
         x2 = min(coordinates['x2_1'], coordinates['x2_2'])
-        
+       
         if (y2 < y1):
             y1 = coordinates['y2_2']
             y2 = coordinates['y2_1']
@@ -173,4 +175,4 @@ class SkinLesionPreprocessing:
         image_cropped = image[y1:y2, x1:x2, :]
         # image_cropped_size = image_cropped.shape
 
-        return image_cropped #, image_cropped_size
+        return image_cropped  # , image_cropped_size
