@@ -9,10 +9,7 @@ scikit-image == 0.19.2
 pywavelets == 1.1.1
 seaborn
 tqdm
-<<<<<<< HEAD
 scipy
 scikit-learn-intelex
-=======
 scikit-learn-intelex
 pyarrow
->>>>>>> dev
