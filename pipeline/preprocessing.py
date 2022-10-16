@@ -163,6 +163,14 @@ class SkinLesionPreprocessing:
         y2 = min(coordinates['y2_1'], coordinates['y1_2'])
         x1 = max(coordinates['x1_1'], coordinates['x1_2'])
         x2 = min(coordinates['x2_1'], coordinates['x2_2'])
+       
+        if (y2 < y1):
+            y1 = coordinates['y2_2']
+            y2 = coordinates['y2_1']
+        
+        if (x2 < x1):
+            x1 = coordinates['x1_1']
+            x2 = coordinates['x2_2']
 
         image_cropped = image[y1:y2, x1:x2, :]
         # image_cropped_size = image_cropped.shape
