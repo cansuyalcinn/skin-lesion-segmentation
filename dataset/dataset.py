@@ -105,7 +105,7 @@ class SkinLesion_Dataset(Dataset):
         sample = {}
         sample['idx'] = idx
         sample['label'] = self.labels[idx]
-        sample['resized'] = False
+        sample['img_id'] = self.md_df['img_id'].iloc[idx]
         
         # read and save the image
         img_path = Path(self.md_df['path'].iloc[idx])
@@ -114,7 +114,6 @@ class SkinLesion_Dataset(Dataset):
         sample['img'] = img
 
         if self.resize_image:
-            sample['resized'] = True
             height, width, ch = img.shape
             img_resized = cv2.resize(img,(int(width/2),int(height/2)), interpolation=cv2.INTER_AREA)
             sample['img'] = img_resized

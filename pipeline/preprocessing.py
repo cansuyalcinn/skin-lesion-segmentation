@@ -64,6 +64,10 @@ class SkinLesionPreprocessing:
         if self.remove_fov:
             image_preproc = self.crop_image(image)
 
+            # case where the image cropping fails, choose not to crop
+            if not image_preproc.any():
+                image_preproc = image
+
         if self.resize:
             image_preproc = self.resize_image(image_preproc, resize_shape)
 
