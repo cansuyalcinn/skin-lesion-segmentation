@@ -46,7 +46,7 @@ class SkinLesion_Dataset(Dataset):
         seed: int = 0,
         partitions: List[str] = ['train', 'val'],
         n_jobs: int = -1,
-        crop_fov: bool = True        
+        resize_image: bool = True,      
     ):
         """
         Constructor of SkinLesion_Dataset class
@@ -67,7 +67,7 @@ class SkinLesion_Dataset(Dataset):
 
         self.class_task = class_task
         self.partitions = partitions
-        # self.crop_fov = crop_fov
+        self.resize_image = resize_image
         
         # Set seed and number of cores to use
         self.seed = seed
@@ -98,9 +98,6 @@ class SkinLesion_Dataset(Dataset):
         self.md_df = self.md_df.loc[self.md_df.split.isin(self.partitions), :]
         self. md_df.reset_index(inplace=True, drop=True)
     
-    def resize_image(self, img: np.ndarray):
-        return cv2.resh
-    
     def __len__(self):
         return len(self.labels)
 
@@ -108,12 +105,20 @@ class SkinLesion_Dataset(Dataset):
         sample = {}
         sample['idx'] = idx
         sample['label'] = self.labels[idx]
-
+        sample['resized'] = False
+        
         # read and save the image
         img_path = Path(self.md_df['path'].iloc[idx])
         img = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
+
         sample['img'] = img
 
+        if self.resize_image:
+            sample['resized'] = True
+            height, width, ch = img.shape
+            img_resized = cv2.resize(img,(int(width/2),int(height/2)), interpolation=cv2.INTER_AREA)
+            sample['img'] = img_resized
+        
         return sample
     
 
@@ -152,6 +157,12 @@ class SegExamples(SkinLesion_Dataset):
         sample['label'] = img_path.split('/')[2]
         img = cv2.imread(self.seg_examples_path+ '/' + img_path, cv2.IMREAD_COLOR )
         sample['img'] = img
+
+        if self.resize_image:
+            sample['resized'] = True
+            height, width, ch = img.shape
+            img_resized = cv2.resize(img,(int(width/2),int(height/2)), interpolation=cv2.INTER_AREA)
+            sample['img'] = img_resized
         return sample
 
 

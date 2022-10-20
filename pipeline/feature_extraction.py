@@ -15,6 +15,7 @@ import multiprocessing as mp
 
 thispath = Path(__file__).resolve()
 
+from skimage.feature import local_binary_pattern, graycomatrix, graycoprops
 from sklearn import preprocessing
 import skimage
 from scipy.stats import skew, kurtosis
@@ -25,7 +26,7 @@ from sklearn import metrics
 from sklearn.model_selection import StratifiedKFold
 from statistics import stdev
 from sklearn import linear_model
-from skimage.feature import local_binary_pattern, graycomatrix, graycoprops
+
 
 fos_names = ['mean', 'std', 'skew', 'kur', 'ent']
 glcm_stats = ['contrast','dissimilarity','homogeneity','ASM','energy','correlation']
@@ -37,6 +38,10 @@ lbp_params = {'radius': [1, 3],'points': 8 }
 glcm_params = {'angles' : [0, np.pi/4, np.pi/2, 3*np.pi/4],
                 'distance' : [1, 2]}
 
+gabor_params = {'ksize': 3, 'sigma': 1, 'lambda': 1*np.pi/4,
+                'gamma': 1, 'phi': 0, 
+                'fos': ['mean', 'var', 'skew', 'kur', 'min']}
+
 
 class FeaturesExtraction():
     def __init__(
@@ -44,6 +49,7 @@ class FeaturesExtraction():
             color_params: dict = color_params,
             lbp_params: dict = lbp_params,
             glcm_params: dict = glcm_params,
+            gabor_params: dict = gabor_params,
             n_jobs: int = -1
     ):
         super(FeaturesExtraction, self).__init__()
@@ -52,6 +58,7 @@ class FeaturesExtraction():
         self.color_params = color_params
         self.lbp_params = lbp_params
         self.glcm_params = glcm_params
+        self.gabor_params = gabor_params
 
         if n_jobs == -1:
             n_jobs = mp.cpu_count()
@@ -85,9 +92,12 @@ class FeaturesExtraction():
                             for angle_idx in range(len(self.glcm_params['angles'])):                        
                                 self.features_names.extend([f'{level}_dist{distance}_ang{angle_idx}_{feat}'])
                 
-        # if self.glcm_params:
-
-
+        if self.gabor_params:
+            for level in self.levels:
+                if level != 'local':
+                    for i in range(3):
+                        for fos in self.gabor_params['fos']:
+                            self.features_names.extend([f'{level}_gabor{i+1}_{fos}'])
 
     def extract_features(self, image: np.ndarray, mask=None):
         """
@@ -116,6 +126,9 @@ class FeaturesExtraction():
 
         if self.glcm_params:
             features.extend(self.get_glcm_features(self.img_gs))
+        
+        if self.gabor_params:
+            features.extend(self.get_gabor_features(self.img_gs))
         # other features
         # features.extend(self.get_X_features(image), mask)
         # candidates_features = np.concatenate(
@@ -264,6 +277,52 @@ class FeaturesExtraction():
             glcm_feat.extend(graycoprops(glcm_decomp, feat_name).ravel())
         
         return glcm_feat
+    
+    def get_gabor_features(self, img: np.ndarray):
+        """
+        Compute first order statistics from gabor filtered images (stored in a DF)
+
+        Args:
+            img (np.ndarray): Original grayscale image
+
+        Returns:
+            _type_: list of features
+        """
+        dataframe = self.gabor_images(img)
+
+        df1=dataframe.mean().to_frame().T
+        df2=dataframe.var().to_frame().T
+        df3=dataframe.skew().to_frame().T
+        df4=dataframe.kurtosis(axis=0).to_frame().T
+        df5=dataframe.min().to_frame().T
+
+        frames = [df1, df2, df3, df4, df5]
+        result = pd.concat(frames, axis=1, join='inner')
+
+        return list(result.iloc[0,:].values)
+    
+    def gabor_images(self, img: np.ndarray):
+        """Obtain gabor filtered images and saves them in a dataframe
+
+        Args:
+            img (np.ndarray): Grayscale original image (np.uint8)
+
+        Returns:
+            _type_: Dataframe containing the gabor filtered images
+        """
+        df = pd.DataFrame()
+        num = 1
+        for d in range(1,4,1):
+            gabor_label = "Gabor"+str(num)
+            theta = 1 * np.pi/d
+            kernel = cv2.getGaborKernel((self.gabor_params['ksize'],self.gabor_params['ksize']), \
+                 self.gabor_params['sigma'], theta, self.gabor_params['lambda'], self.gabor_params['gamma'], \
+                     self.gabor_params['phi'], ktype=cv2.CV_32F)
+            fimg = cv2.filter2D(img, cv2.CV_8UC3, kernel)
+            filtered_img = fimg.reshape(-1) # 1d. add filtered image as feature
+            df[gabor_label] = filtered_img
+            num += 1
+        return df
         
 
 
