@@ -180,3 +180,50 @@ class SkinLesionPreprocessing:
         # image_cropped_size = image_cropped.shape
 
         return image_cropped  # , image_cropped_size
+
+    def get_seg_mask(self, image: np.ndarray):
+        """
+        Obtain segmented lesion mask from image. Uses thresholding method from R channel.
+        It filters the largest connected component
+
+        Args:
+            image (np.ndarray): Image to segment
+
+        Returns:
+            mask (np.ndarray): Binary mask with the segmented lesion
+        """
+        # obtain segmentation with thresholding method
+
+        r_norm = image[:,:,2]*(1/np.sqrt(np.sum(image.astype(np.float32)**2 + np.finfo(float).eps, axis=-1)))
+        rnormg = (cv2.GaussianBlur(r_norm, ksize = (0,0), sigmaX=3, borderType = cv2.BORDER_DEFAULT)*255).astype(np.uint8)
+        _,mask_r = cv2.threshold(rnormg, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+
+        # Filling holes
+        contour_r,_ = cv2.findContours(mask_r,cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
+        for cnt in contour_r:
+            cv2.drawContours(mask_r,[cnt],0,255,-1)
+
+        # filter largest connected component
+        connectivity = 4  
+        output = cv2.connectedComponentsWithStats(mask_r, connectivity, cv2.CV_32S)
+        
+        # connected components
+        labels = output[1]
+        # statistics matrix
+        stats = output[2]
+
+        # get maximum maximum size not considering the background
+
+        bkgd_bbox = [0, 0, image.shape[1], image.shape[0]]
+        cc_areas = {lab:stats[lab,4] for lab, row in enumerate(stats[:,:4]) if (row != bkgd_bbox).any()}
+        
+        if not not cc_areas:
+            top_lab = max(cc_areas, key=cc_areas.get)
+            final_mask = np.uint8(labels == top_lab)
+        else:
+            return mask_r
+        # discard filtered mask if background do not follow the set condition
+        if mask_r.sum() > (1000*final_mask.sum()):
+            return mask_r
+        
+        return final_mask  
