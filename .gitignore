@@ -2,3 +2,6 @@ data/
 database/
 .idea/
 examples/
+dataset/__pycache__/
+pipeline/__pycache__/
+notebooks/.ipynb_checkpoints

@@ -1,7 +1,7 @@
-numpy
-opencv-python
+numpy==1.23.3
+opencv-python==4.6.0.66
 # opencv-contrib-python == 4.5.4.60
-pandas
+pandas==1.5.0
 scikit-learn
 matplotlib
 SimpleITK == 2.1.1
@@ -9,4 +9,9 @@ scikit-image == 0.19.2
 pywavelets == 1.1.1
 seaborn
 tqdm
+scipy
 scikit-learn-intelex
+scikit-learn-intelex
+pyarrow
+imbalanced-learn-0.9.1
+xgboost-1.7.0
