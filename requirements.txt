@@ -13,3 +13,5 @@ scipy
 scikit-learn-intelex
 scikit-learn-intelex
 pyarrow
+imbalanced-learn-0.9.1
+xgboost-1.7.0
