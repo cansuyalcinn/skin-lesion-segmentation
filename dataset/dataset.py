@@ -11,7 +11,7 @@ from typing import List, Tuple
 import multiprocessing as mp
 thispath = Path(__file__).resolve()
 
-datapath = thispath.parent.parent / "data"
+datapath = thispath.parent.parent
 md_df_path = thispath.parent.parent / "metadata"
 
 class Dataset():
@@ -46,8 +46,8 @@ class SkinLesion_Dataset(Dataset):
         seed: int = 0,
         partitions: List[str] = ['train', 'val'],
         n_jobs: int = -1,
-        resize_image: bool = True,      
-    ):
+        resize_image: bool = False,
+        process: bool = False,):
         """
         Constructor of SkinLesion_Dataset class
 
@@ -74,8 +74,12 @@ class SkinLesion_Dataset(Dataset):
         np.random.seed(self.seed)
         self.n_jobs = mp.cpu_count() if n_jobs == -1 else n_jobs
 
-        self.datapath = datapath
-        self.datapath_class = datapath_class/class_task
+        if process:
+            self.datapath_class = datapath_class / 'data_processed'
+        else:
+            self.datapath_class = datapath_class / 'data'
+        
+        self.datapath_class = self.datapath_class/class_task
         self.metadata_path = df_path/ (class_task + '.csv')
         self.df_path = df_path
        
@@ -108,14 +112,15 @@ class SkinLesion_Dataset(Dataset):
         sample['img_id'] = self.md_df['img_id'].iloc[idx]
         
         # read and save the image
-        img_path = Path(self.md_df['path'].iloc[idx])
+        img_path = self.datapath_class/self.md_df['path'].iloc[idx].split(self.class_task)[-1][1:]
         img = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
 
         sample['img'] = img
 
         if self.resize_image:
-            height, width, ch = img.shape
-            img_resized = cv2.resize(img,(int(width/2),int(height/2)), interpolation=cv2.INTER_AREA)
+            # height, width, ch = img.shape
+            # img_resized = cv2.resize(img,(int(width/2),int(height/2)), interpolation=cv2.INTER_AREA)
+            img_resized = cv2.resize(img, (224, 224), interpolation=cv2.INTER_AREA)
             sample['img'] = img_resized
         
         return sample
