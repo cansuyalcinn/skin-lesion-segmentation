@@ -47,7 +47,8 @@ class SkinLesion_Dataset(Dataset):
         partitions: List[str] = ['train', 'val'],
         n_jobs: int = -1,
         resize_image: bool = False,
-        process: bool = False,):
+        process: bool = False,
+        transforms = None):
         """
         Constructor of SkinLesion_Dataset class
 
@@ -68,6 +69,7 @@ class SkinLesion_Dataset(Dataset):
         self.class_task = class_task
         self.partitions = partitions
         self.resize_image = resize_image
+        self.transforms = transforms
         
         # Set seed and number of cores to use
         self.seed = seed
@@ -114,6 +116,7 @@ class SkinLesion_Dataset(Dataset):
         # read and save the image
         img_path = self.datapath_class/self.md_df['path'].iloc[idx].split(self.class_task)[-1][1:]
         img = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         sample['img'] = img
 
@@ -122,6 +125,9 @@ class SkinLesion_Dataset(Dataset):
             # img_resized = cv2.resize(img,(int(width/2),int(height/2)), interpolation=cv2.INTER_AREA)
             img_resized = cv2.resize(img, (224, 224), interpolation=cv2.INTER_AREA)
             sample['img'] = img_resized
+        
+        if self.transforms:
+            sample['img'] = self.transforms(sample['img'])
         
         return sample
     
