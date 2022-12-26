@@ -7,3 +7,4 @@ pipeline/__pycache__/
 notebooks/.ipynb_checkpoints
 data_processed/
 models/
+data_processed.zip
