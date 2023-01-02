@@ -19,3 +19,4 @@ prettytable
 timm
 gdown
 prettytable
+pyarrow
