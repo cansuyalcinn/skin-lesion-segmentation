@@ -21,3 +21,4 @@ gdown
 prettytable
 pyarrow
 torcheval
+kornia
