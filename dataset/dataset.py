@@ -12,6 +12,7 @@ import multiprocessing as mp
 thispath = Path(__file__).resolve()
 
 datapath = thispath.parent.parent
+
 md_df_path = thispath.parent.parent / "metadata"
 
 class Dataset():
@@ -49,6 +50,7 @@ class SkinLesion_Dataset(Dataset):
         resize_image: bool = False,
         process: bool = False,
         transforms = None):
+
         """
         Constructor of SkinLesion_Dataset class
 
@@ -70,6 +72,7 @@ class SkinLesion_Dataset(Dataset):
         self.partitions = partitions
         self.resize_image = resize_image
         self.transforms = transforms
+
         
         # Set seed and number of cores to use
         self.seed = seed
@@ -82,6 +85,7 @@ class SkinLesion_Dataset(Dataset):
             self.datapath_class = datapath_class / 'data'
         
         self.datapath_class = self.datapath_class/class_task
+
         self.metadata_path = df_path/ (class_task + '.csv')
         self.df_path = df_path
        
@@ -114,9 +118,11 @@ class SkinLesion_Dataset(Dataset):
         sample['img_id'] = self.md_df['img_id'].iloc[idx]
         
         # read and save the image
+
         img_path = self.datapath_class/self.md_df['path'].iloc[idx].split(self.class_task)[-1][1:]
         img = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
 
         sample['img'] = img
 
@@ -128,7 +134,7 @@ class SkinLesion_Dataset(Dataset):
         
         if self.transforms:
             sample['img'] = self.transforms(sample['img'])
-        
+
         return sample
     
 

@@ -33,6 +33,7 @@ class SkinLesionPreprocessing:
                  resize: bool = False,
                  hair_removal_params: dict = HAIR_REMOVAL_PARAMS,
                  remove_hair: bool = True,
+
                  ):
         """ Preprocess the images from Skin Lesion Dataset
         Removes FOV (vignette), reisize the images to a defined length,
@@ -73,6 +74,7 @@ class SkinLesionPreprocessing:
         return image_preproc
 
     def hair_removal(self, image: np.ndarray):
+
         """
         Removes dark hairs from image with blackhat technique and inpainting.
 

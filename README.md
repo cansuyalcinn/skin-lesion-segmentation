@@ -28,3 +28,4 @@ Check notebook ```notebooks/deep_learning/inference_ensemble.ipynb```
 ### ML
 
 To make an inference test, please refer to ```notebooks/pipeline_test.ipynb```
+
