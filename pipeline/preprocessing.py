@@ -32,6 +32,7 @@ class SkinLesionPreprocessing:
                  remove_fov: bool = True,
                  resize: bool = False,
                  hair_removal_params: dict = HAIR_REMOVAL_PARAMS,
+                 remove_hair: bool = True,
 
                  ):
         """ Preprocess the images from Skin Lesion Dataset
@@ -45,16 +46,12 @@ class SkinLesionPreprocessing:
             Defaults to False.
             hair_removal_params (dict, optional): hair removal algorithm parameters. 
             Defaults to HAIR_REMOVAL_PARAMS.
+            remove_hair (bool, optional): Whether to remove hair
         """
-        super(SkinLesionPreprocessing, self).__init__()
-
         self.remove_fov = remove_fov
         self.resize = resize
         self.hair_removal_params = hair_removal_params
-
-        if resize:
-            self.rs_height = 200
-            self.rs_width = 200
+        self.remove_hair = remove_hair
 
     def preprocess(self, image: np.ndarray, resize_shape=(225, 300)):
 
@@ -70,10 +67,14 @@ class SkinLesionPreprocessing:
 
         if self.resize:
             image_preproc = self.resize_image(image_preproc, resize_shape)
+        
+        if self.remove_hair:
+            image_preproc = self.hair_removal(image_preproc)
 
-        return self.remove_hair(image_preproc)
+        return image_preproc
 
-    def remove_hair(self, image: np.ndarray):
+    def hair_removal(self, image: np.ndarray):
+
         """
         Removes dark hairs from image with blackhat technique and inpainting.
 
@@ -114,6 +115,28 @@ class SkinLesionPreprocessing:
         # Add condition about aspect ratio
 
         return cv2.resize(image, resize_shape, interpolation=cv2.INTER_CUBIC)
+
+    # def resize_with_pad(self, image: np.array, 
+    #                 new_shape: Tuple[int, int], 
+    #                 padding_color: Tuple[int] = (255, 255, 255)) -> np.array:
+    #     """Maintains aspect ratio and resizes with padding.
+    #     Params:
+    #         image: Image to be resized.
+    #         new_shape: Expected (width, height) of new image.
+    #         padding_color: Tuple in BGR of padding color
+    #     Returns:
+    #         image: Resized image with padding
+    #     """
+    #     original_shape = (image.shape[1], image.shape[0])
+    #     ratio = float(max(new_shape))/max(original_shape)
+    #     new_size = tuple([int(x*ratio) for x in original_shape])
+    #     image = cv2.resize(image, new_size)
+    #     delta_w = new_shape[0] - new_size[0]
+    #     delta_h = new_shape[1] - new_size[1]
+    #     top, bottom = delta_h//2, delta_h-(delta_h//2)
+    #     left, right = delta_w//2, delta_w-(delta_w//2)
+    #     image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=padding_color)
+    #     return image
 
     def crop_image(self, image: np.ndarray, threshold=100):
         """

@@ -5,3 +5,10 @@ examples/
 dataset/__pycache__/
 pipeline/__pycache__/
 notebooks/.ipynb_checkpoints
+data_processed/
+models/
+data_processed.zip
+data_processed2/
+binary.zip
+best_models/
+notebooks/.ipynb_checkpoints
