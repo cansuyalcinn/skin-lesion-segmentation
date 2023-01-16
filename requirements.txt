@@ -11,8 +11,14 @@ seaborn
 tqdm
 scipy
 scikit-learn-intelex
-scikit-learn-intelex
 pyarrow
-imbalanced-learn-0.9.1
-xgboost-1.7.0
+# imbalanced-learn-0.9.1
+# xgboost-1.7.0
 tensorboard
+prettytable
+timm
+gdown
+prettytable
+pyarrow
+torcheval
+kornia
